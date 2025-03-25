@@ -255,8 +255,9 @@ pub fn move_player(
             let right_axis = Vec3::new(-move_dir.z, 0.0, move_dir.x); // Perpendicular to movement
             
             // Angular velocity around the right axis (perpendicular to movement)
+            // Negative sign creates proper topspin (rotates top of sphere in direction of movement)
             let speed = physics.velocity.length();
-            physics.angular_velocity = right_axis * (speed / sphere_radius);
+            physics.angular_velocity = right_axis * (-speed / sphere_radius);
         } else {
             // Gradually reduce angular velocity when not moving
             physics.angular_velocity *= 0.95;
