@@ -26,9 +26,9 @@ pub struct Projectile {
 const GRAVITY: f32 = 19.6; // Double the normal gravity for heavier feel
 const PROJECTILE_LIFETIME: f32 = 8.0; // Initial flight time before hitting something
 const PROJECTILE_HEIGHT_FACTOR: f32 = 5.0; // Much higher arc for catapult-like trajectory
-const PROJECTILE_SPEED: f32 = 0.25; // Much slower speed for plodding catapult feel
-const MAX_HORIZONTAL_DIST: f32 = 15.0; // Maximum distance to consider for velocity calculation
-const MAX_HORIZONTAL_VELOCITY: f32 = 2.0; // Maximum horizontal velocity component
+const PROJECTILE_SPEED: f32 = 1.0; // Much slower speed for plodding catapult feel
+const MAX_HORIZONTAL_DIST: f32 = 12.0; // Maximum distance to consider for velocity calculation
+const MAX_HORIZONTAL_VELOCITY: f32 = 20.0; // Maximum horizontal velocity component
 const MAX_VERTICAL_VELOCITY: f32 = 7.0; // Maximum vertical velocity component
 
 // System to spawn projectiles when mouse is clicked
