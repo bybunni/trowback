@@ -9,7 +9,7 @@ mod assets;
 // Import specific items we need
 use player::{PlayerPlugin, spawn_player};
 use camera::{CameraPlugin, spawn_camera};
-use terrain::{TerrainPlugin, spawn_terrain};
+use terrain::TerrainPlugin;
 
 fn main() {
     App::new()
@@ -48,6 +48,5 @@ fn setup(
     // Add player using the player module
     spawn_player(&mut commands, &mut meshes, &mut materials, &mut textures);
 
-    // Add terrain using the terrain module
-    spawn_terrain(&mut commands, &mut meshes, &mut materials);
+    // Terrain is now managed by the TerrainPlugin with dynamic chunk loading
 }

@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 // Import the get_terrain_height function from the terrain module
 use crate::terrain::get_terrain_height;
 // Import the texture generator from assets module
