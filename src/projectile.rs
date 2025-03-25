@@ -25,6 +25,9 @@ const GRAVITY: f32 = 19.6; // Double the normal gravity for heavier feel
 const PROJECTILE_LIFETIME: f32 = 8.0; // Extended lifetime since they'll be slower
 const PROJECTILE_HEIGHT_FACTOR: f32 = 5.0; // Much higher arc for catapult-like trajectory
 const PROJECTILE_SPEED: f32 = 0.25; // Much slower speed for plodding catapult feel
+const MAX_HORIZONTAL_DIST: f32 = 15.0; // Maximum distance to consider for velocity calculation
+const MAX_HORIZONTAL_VELOCITY: f32 = 2.0; // Maximum horizontal velocity component
+const MAX_VERTICAL_VELOCITY: f32 = 7.0; // Maximum vertical velocity component
 
 // System to spawn projectiles when mouse is clicked
 pub fn spawn_projectile(
@@ -66,16 +69,30 @@ pub fn spawn_projectile(
                 target_pos.z - player_pos.z
             ).normalize();
             
-            // Desired max height above higher of start/end points
-            let max_height_above = horizontal_dist * PROJECTILE_HEIGHT_FACTOR;
+            // Clamp horizontal distance to prevent excessive velocities for far targets
+            let clamped_horizontal_dist = horizontal_dist.min(MAX_HORIZONTAL_DIST);
             
-            // Calculate initial velocity for a much slower, higher arc
-            // Using simplified ballistic equations for a catapult-like trajectory
-            // Make travel time much longer for slower projectiles
-            let travel_time = (horizontal_dist / PROJECTILE_SPEED).max(3.0);
+            // Desired max height above higher of start/end points - cap at reasonable value
+            let max_height_factor = if horizontal_dist > MAX_HORIZONTAL_DIST {
+                // Gradually reduce height factor for very distant targets to prevent extreme arcs
+                PROJECTILE_HEIGHT_FACTOR * (1.0 - 0.5 * (horizontal_dist - MAX_HORIZONTAL_DIST) / MAX_HORIZONTAL_DIST).max(0.2)
+            } else {
+                PROJECTILE_HEIGHT_FACTOR
+            };
+            let max_height_above = clamped_horizontal_dist * max_height_factor;
             
-            // Horizontal component of velocity
-            let horizontal_velocity = direction * (horizontal_dist / travel_time);
+            // Base travel time on clamped distance for more consistent speed feel
+            // For far targets, increase the min time to make them even slower
+            let min_travel_time = if horizontal_dist > MAX_HORIZONTAL_DIST {
+                3.0 + (horizontal_dist - MAX_HORIZONTAL_DIST) * 0.3 // Add time for distances beyond the maximum
+            } else {
+                3.0
+            };
+            let travel_time = (clamped_horizontal_dist / PROJECTILE_SPEED).max(min_travel_time);
+            
+            // Horizontal component of velocity with clamping
+            let horizontal_speed = (clamped_horizontal_dist / travel_time).min(MAX_HORIZONTAL_VELOCITY);
+            let horizontal_velocity = direction * horizontal_speed;
             
             // Vertical component for arc (solving quadratic equation for projectile motion)
             // v_y = (h + 0.5*g*t²)/t
@@ -85,11 +102,23 @@ pub fn spawn_projectile(
                 0.5 * GRAVITY * travel_time * travel_time
             ) / travel_time;
             
-            // Combine into 3D velocity
+            // Clamp vertical velocity to prevent extreme velocities
+            let clamped_vertical_velocity = vertical_velocity.min(MAX_VERTICAL_VELOCITY);
+            
+            // Combine into 3D velocity with clamped components
             let initial_velocity = Vec3::new(
                 horizontal_velocity.x,
-                vertical_velocity,
+                clamped_vertical_velocity,
                 horizontal_velocity.z
+            );
+            
+            // Debug info
+            println!("Distance: {:.2}, Vel: ({:.2}, {:.2}, {:.2}), Time: {:.2}", 
+                horizontal_dist,
+                initial_velocity.x,
+                initial_velocity.y,
+                initial_velocity.z,
+                travel_time
             );
             
             // Create larger, boulder-like projectile for catapult feel
