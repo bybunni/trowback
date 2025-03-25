@@ -63,8 +63,8 @@ pub fn spawn_player(
     
     // Add player sphere positioned exactly on the terrain with a small offset to ensure collision
     let sphere_radius = 0.5;
-    // Place the bottom of the sphere exactly on the terrain with a tiny offset
-    let initial_position = Vec3::new(initial_x, terrain_height + sphere_radius + 0.01, initial_z);
+    // Start the sphere higher above the terrain to allow gravity to visibly pull it down
+    let initial_position = Vec3::new(initial_x, terrain_height + sphere_radius + 2.0, initial_z);
     
     // Create a textured material for the sphere with a pattern to show rotation
     let texture_handle = texture_assets.add(create_sphere_texture());
