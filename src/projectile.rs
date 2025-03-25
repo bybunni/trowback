@@ -18,11 +18,13 @@ pub struct Projectile {
     pub age: f32,
     // Speed multiplier (affects how fast it travels)
     pub speed: f32,
+    // Flag indicating if projectile is stuck to terrain
+    pub stuck: bool,
 }
 
 // Constants for projectile behavior
 const GRAVITY: f32 = 19.6; // Double the normal gravity for heavier feel
-const PROJECTILE_LIFETIME: f32 = 8.0; // Extended lifetime since they'll be slower
+const PROJECTILE_LIFETIME: f32 = 8.0; // Initial flight time before hitting something
 const PROJECTILE_HEIGHT_FACTOR: f32 = 5.0; // Much higher arc for catapult-like trajectory
 const PROJECTILE_SPEED: f32 = 0.25; // Much slower speed for plodding catapult feel
 const MAX_HORIZONTAL_DIST: f32 = 15.0; // Maximum distance to consider for velocity calculation
@@ -46,7 +48,7 @@ pub fn spawn_projectile(
             let target_pos = mouse_look.target_position;
             
             // Calculate horizontal distance to target
-            let horizontal_dist = Vec3::new(
+            let _horizontal_dist = Vec3::new(
                 target_pos.x - player_pos.x, 
                 0.0, 
                 target_pos.z - player_pos.z
@@ -63,7 +65,7 @@ pub fn spawn_projectile(
             // We'll use physics formulas for projectile motion to create a nice arc
             
             // Direction to target (horizontal only)
-            let direction = Vec3::new(
+            let _direction = Vec3::new(
                 target_pos.x - player_pos.x,
                 0.0,
                 target_pos.z - player_pos.z
@@ -180,6 +182,7 @@ pub fn spawn_projectile(
                     lifetime: PROJECTILE_LIFETIME,
                     age: 0.0,
                     speed: PROJECTILE_SPEED,
+                    stuck: false, // Initialize as not stuck
                 },
                 Mesh3d(meshes.add(arrow_mesh)),
                 MeshMaterial3d(materials.add(arrow_material)),
@@ -206,30 +209,33 @@ pub fn update_projectiles(
             continue;
         }
         
-        // Calculate current position based on ballistic trajectory
+        // Calculate time and velocities regardless of stuck state (for use in later calculations)
         let t = projectile.age;
         let initial_vel = projectile.initial_velocity;
         let start_pos = projectile.start_position;
         
-        // Apply ballistic motion formula: pos = start_pos + initial_vel*t + 0.5*gravity*t²
-        let current_pos = Vec3::new(
-            start_pos.x + initial_vel.x * t,
-            start_pos.y + initial_vel.y * t - 0.5 * GRAVITY * t * t,
-            start_pos.z + initial_vel.z * t
-        );
-        
-        // Update transform position
-        transform.translation = current_pos;
-        
-        // Orient projectile to face in the direction of travel
-        if t > 0.0 {
-            // Calculate current velocity vector (derivative of position)
-            let current_velocity = Vec3::new(
-                initial_vel.x,
-                initial_vel.y - GRAVITY * t,
-                initial_vel.z
+        // Only update position if the projectile is not stuck
+        if !projectile.stuck {
+            // Apply ballistic motion formula: pos = start_pos + initial_vel*t + 0.5*gravity*t²
+            let current_pos = Vec3::new(
+                start_pos.x + initial_vel.x * t,
+                start_pos.y + initial_vel.y * t - 0.5 * GRAVITY * t * t,
+                start_pos.z + initial_vel.z * t
             );
             
+            // Update transform position
+            transform.translation = current_pos;
+        }
+        
+        // Calculate current velocity (derivative of position)
+        let current_velocity = Vec3::new(
+            initial_vel.x,
+            initial_vel.y - GRAVITY * t,
+            initial_vel.z
+        );
+
+        // Orient projectile to face in the direction of travel, but only if not stuck
+        if !projectile.stuck && t > 0.0 {
             // Only update rotation if moving
             if current_velocity.length_squared() > 0.001 {
                 // Make the projectile point in the direction it's moving
@@ -243,41 +249,49 @@ pub fn update_projectiles(
         }
         
         // Debug info to help diagnose trajectory issues during early flight
-        if t < 0.2 && (t * 10.0).round() == (t * 10.0) {
-            // Calculate velocity vector for debug purposes
-            let debug_velocity = Vec3::new(
-                initial_vel.x, 
-                initial_vel.y - GRAVITY * t, 
-                initial_vel.z
-            );
+        if !projectile.stuck && t < 0.2 && (t * 10.0).round() == (t * 10.0) {
+            // Get current position for debugging
+            let debug_pos = transform.translation;
             
             println!("T: {:.1}, Pos: ({:.2}, {:.2}, {:.2}), Vel: ({:.2}, {:.2}, {:.2})", 
                 t,
-                current_pos.x, current_pos.y, current_pos.z,
-                debug_velocity.x, debug_velocity.y, debug_velocity.z
+                debug_pos.x, debug_pos.y, debug_pos.z,
+                current_velocity.x, current_velocity.y, current_velocity.z
             );
         }
         
-        // Check for collision with terrain using the proper terrain height function
-        let terrain_height = get_terrain_height(transform.translation.x, transform.translation.z);
-        if transform.translation.y <= terrain_height {
-            // Position the arrow at the terrain with slight embedding
-            transform.translation.y = terrain_height;
-            
-            // Adjust rotation to stick into the ground
-            let up_vector = Vec3::Y;
-            let normal_vector = Vec3::new(0.0, 1.0, 0.0); // Simplified - assume flat terrain
-            
-            // Face slightly into the ground
-            let impact_direction = transform.rotation * Vec3::Z;
-            let ground_direction = impact_direction.lerp(normal_vector, 0.5).normalize();
-            transform.look_to(ground_direction, up_vector);
-            
-            // Let arrows stay for a while after impact
-            projectile.lifetime = projectile.age + 10.0; // Stay for 10 more seconds
-            
-            // Make it a "static" projectile by flagging it
-            projectile.speed = 0.0;
+        // Only check for collision if the projectile is not already stuck
+        if !projectile.stuck {
+            // Check for collision with terrain using the proper terrain height function
+            let terrain_height = get_terrain_height(transform.translation.x, transform.translation.z);
+            if transform.translation.y <= terrain_height {
+                // Position the arrow at the terrain with slight embedding
+                transform.translation.y = terrain_height;
+                
+                // Adjust rotation to stick into the ground
+                let up_vector = Vec3::Y;
+                let normal_vector = Vec3::new(0.0, 1.0, 0.0); // Simplified - assume flat terrain
+                
+                // Face slightly into the ground
+                let impact_direction = transform.rotation * Vec3::Z;
+                let ground_direction = impact_direction.lerp(normal_vector, 0.5).normalize();
+                transform.look_to(ground_direction, up_vector);
+                
+                // Let projectiles stay for a while after impact
+                projectile.lifetime = projectile.age + 30.0; // Stay for 30 seconds after sticking
+                
+                // Mark as stuck to prevent further updates to position
+                projectile.stuck = true;
+                
+                // Make it a "static" projectile by zeroing its speed
+                projectile.speed = 0.0;
+                
+                // Debug output when a projectile sticks
+                println!("Projectile stuck at position: ({:.2}, {:.2}, {:.2})", 
+                    transform.translation.x, 
+                    transform.translation.y, 
+                    transform.translation.z);
+            }
         }
     }
 }
