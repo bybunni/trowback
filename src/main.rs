@@ -43,7 +43,7 @@ fn setup(
     });
     
     // Add camera using the camera module
-    spawn_camera(&mut commands);
+    spawn_camera(&mut commands, &mut meshes, &mut materials);
 
     // Add player using the player module
     spawn_player(&mut commands, &mut meshes, &mut materials, &mut textures);

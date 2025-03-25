@@ -264,7 +264,8 @@ pub fn move_player(
             // For a sphere, angular velocity is proportional to linear velocity divided by radius
             // ω = v/r for a rolling sphere
             let move_dir = Vec3::new(physics.velocity.x, 0.0, physics.velocity.z).normalize();
-            let right_axis = Vec3::new(-move_dir.z, 0.0, move_dir.x); // Perpendicular to movement
+            // This is the axis perpendicular to movement direction (right side of sphere)
+            let right_axis = Vec3::new(-move_dir.z, 0.0, move_dir.x);
             
             // Angular velocity around the right axis (perpendicular to movement)
             // Negative sign creates proper topspin (rotates top of sphere in direction of movement)
