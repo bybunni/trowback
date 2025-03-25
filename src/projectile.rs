@@ -21,10 +21,10 @@ pub struct Projectile {
 }
 
 // Constants for projectile behavior
-const GRAVITY: f32 = 9.8; // Same as player gravity
-const PROJECTILE_LIFETIME: f32 = 5.0; // Seconds before projectile disappears
-const PROJECTILE_HEIGHT_FACTOR: f32 = 3.0; // How high the arc goes (higher = more lofted)
-const PROJECTILE_SPEED: f32 = 0.7; // Speed multiplier (lower = slower)
+const GRAVITY: f32 = 19.6; // Double the normal gravity for heavier feel
+const PROJECTILE_LIFETIME: f32 = 8.0; // Extended lifetime since they'll be slower
+const PROJECTILE_HEIGHT_FACTOR: f32 = 5.0; // Much higher arc for catapult-like trajectory
+const PROJECTILE_SPEED: f32 = 0.25; // Much slower speed for plodding catapult feel
 
 // System to spawn projectiles when mouse is clicked
 pub fn spawn_projectile(
@@ -69,9 +69,10 @@ pub fn spawn_projectile(
             // Desired max height above higher of start/end points
             let max_height_above = horizontal_dist * PROJECTILE_HEIGHT_FACTOR;
             
-            // Calculate initial velocity for desired arc
-            // Using simplified ballistic equations for a nice arc
-            let travel_time = (horizontal_dist / PROJECTILE_SPEED).max(1.0);
+            // Calculate initial velocity for a much slower, higher arc
+            // Using simplified ballistic equations for a catapult-like trajectory
+            // Make travel time much longer for slower projectiles
+            let travel_time = (horizontal_dist / PROJECTILE_SPEED).max(3.0);
             
             // Horizontal component of velocity
             let horizontal_velocity = direction * (horizontal_dist / travel_time);
@@ -91,18 +92,27 @@ pub fn spawn_projectile(
                 horizontal_velocity.z
             );
             
-            // Create arrow mesh (simple cone for the arrow)
-            let arrow_mesh = Mesh::from(Sphere::new(0.05));
+            // Create larger, boulder-like projectile for catapult feel
+            let arrow_mesh = Mesh::from(Sphere::new(0.15));
             
-            // Create arrow material (wooden brown color with slight emission)
+            // Create stone-like material for catapult boulder appearance
             let arrow_material = StandardMaterial {
-                base_color: Color::srgb(0.6, 0.3, 0.1),
-                emissive: Color::srgb(0.1, 0.05, 0.02).into(),
-                perceptual_roughness: 0.65,
+                base_color: Color::srgb(0.4, 0.4, 0.4),
+                emissive: Color::srgb(0.0, 0.0, 0.0).into(),
+                perceptual_roughness: 0.9,
                 metallic: 0.0,
-                reflectance: 0.1,
+                reflectance: 0.05,
                 ..default()
             };
+            
+            // Apply a random slight variation to initial velocity for natural feel
+            let variation = 0.05;
+            let random_variation = Vec3::new(
+                (rand::random::<f32>() - 0.5) * variation,
+                (rand::random::<f32>()) * variation, // Slight positive bias on Y
+                (rand::random::<f32>() - 0.5) * variation
+            );
+            let initial_velocity = initial_velocity + random_variation;
             
             // Spawn projectile entity
             commands.spawn((
@@ -117,7 +127,7 @@ pub fn spawn_projectile(
                 Mesh3d(meshes.add(arrow_mesh)),
                 MeshMaterial3d(materials.add(arrow_material)),
                 Transform::from_translation(start_pos),
-                Name::new("Arrow Projectile"),
+                Name::new("Catapult Boulder"),
             ));
         }
     }
