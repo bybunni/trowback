@@ -47,6 +47,7 @@ const MOMENTUM_FACTOR: f32 = 0.85; // Reduced from 0.92 (less momentum preservat
 const RESTITUTION: f32 = 0.4; // Reduced from 0.6 (less bouncy)
 const MASS_FACTOR: f32 = 0.8; // Increased from 0.5 (feels heavier)
 const MAX_SPEED: f32 = 6.0; // Reduced from 10.0
+const JUMP_FORCE: f32 = 8.0; // Force applied when jumping
 
 // Create a player entity
 pub fn spawn_player(
@@ -104,6 +105,9 @@ pub fn move_player(
         if keys.pressed(KeyCode::KeyS) { input_direction.z += 1.0; }
         if keys.pressed(KeyCode::KeyA) { input_direction.x -= 1.0; }
         if keys.pressed(KeyCode::KeyD) { input_direction.x += 1.0; }
+        
+        // Detect jump request (spacebar)
+        let jump_requested = keys.just_pressed(KeyCode::Space);
 
         // Normalize input if there is any
         if input_direction.length_squared() > 0.0 {
@@ -198,8 +202,14 @@ pub fn move_player(
             physics.velocity.x += input_force.x * delta * 2.5;
             physics.velocity.z += input_force.z * delta * 2.5;
             
-            // Strictly ensure no y-velocity is added from inputs when grounded
-            if physics.velocity.y > 0.0 {
+            // Apply jump force if spacebar is pressed and player is grounded
+            if physics.grounded && jump_requested {
+                // Apply upward force - combined with existing momentum
+                physics.velocity.y = JUMP_FORCE;
+                // Set grounded to false since we're now in the air
+                physics.grounded = false;
+            } else if physics.velocity.y > 0.0 && physics.grounded {
+                // Strictly ensure no y-velocity is added from regular inputs when grounded
                 physics.velocity.y = 0.0;
             }
         }
