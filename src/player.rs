@@ -195,6 +195,14 @@ pub fn move_player(
             }
         }
         
+        // Apply jump force if spacebar is pressed and player is grounded
+        if physics.grounded && jump_requested {
+            // Apply upward force - combined with existing momentum
+            physics.velocity.y = JUMP_FORCE;
+            // Set grounded to false since we're now in the air
+            physics.grounded = false;
+        }
+        
         // Apply player input force (with mass factored in)
         if physics.grounded && input_direction.length_squared() > 0.0 {
             let input_force = input_direction * (MOVE_SPEED / effective_mass);
@@ -202,14 +210,8 @@ pub fn move_player(
             physics.velocity.x += input_force.x * delta * 2.5;
             physics.velocity.z += input_force.z * delta * 2.5;
             
-            // Apply jump force if spacebar is pressed and player is grounded
-            if physics.grounded && jump_requested {
-                // Apply upward force - combined with existing momentum
-                physics.velocity.y = JUMP_FORCE;
-                // Set grounded to false since we're now in the air
-                physics.grounded = false;
-            } else if physics.velocity.y > 0.0 && physics.grounded {
-                // Strictly ensure no y-velocity is added from regular inputs when grounded
+            // Strictly ensure no y-velocity is added from movement inputs when grounded
+            if physics.velocity.y > 0.0 && physics.grounded && !jump_requested {
                 physics.velocity.y = 0.0;
             }
         }
