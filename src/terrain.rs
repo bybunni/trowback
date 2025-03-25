@@ -169,7 +169,7 @@ pub fn get_terrain_height(x: f32, z: f32) -> f32 {
 pub struct TerrainPlugin;
 
 impl Plugin for TerrainPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         // No systems to add for terrain yet
         // Could add dynamic terrain features or terrain-related systems later
     }

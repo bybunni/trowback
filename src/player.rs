@@ -2,123 +2,12 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 // Import the get_terrain_height function from the terrain module
 use crate::terrain::get_terrain_height;
+// Import the texture generator from assets module
+use crate::assets::sphere_texture::create_sphere_texture;
 
 // Player component
 #[derive(Component)]
 pub struct Player;
-
-// Generate a simple procedural texture for the sphere
-// This creates a texture with visible patterns to make rotation apparent
-fn create_sphere_texture() -> Image {
-    let size = 256; // Texture size
-    let mut rgba = vec![0; size * size * 4];
-    
-    for y in 0..size {
-        for x in 0..size {
-            let i = (y * size + x) * 4;
-            
-            // Calculate normalized coordinates from center
-            let nx = (x as f32 / size as f32) * 2.0 - 1.0;
-            let ny = (y as f32 / size as f32) * 2.0 - 1.0;
-            
-            // Skip pixels outside the circle
-            if nx*nx + ny*ny > 1.0 {
-                // Transparent background
-                rgba[i] = 255;     // R
-                rgba[i + 1] = 255; // G
-                rgba[i + 2] = 255; // B
-                rgba[i + 3] = 0;   // A (transparent)
-                continue;
-            }
-            
-            // Create a pattern of segments like a beach ball or billiard ball
-            let angle = ny.atan2(nx);
-            let segments = 8;
-            let segment_id = ((angle / std::f32::consts::PI * segments as f32 / 2.0) + segments as f32) as usize % segments;
-            
-            // Alternating colors for segments
-            match segment_id {
-                0 => {
-                    rgba[i] = 200;     // R
-                    rgba[i + 1] = 50;  // G
-                    rgba[i + 2] = 50;  // B
-                    rgba[i + 3] = 255; // A
-                }
-                1 => {
-                    rgba[i] = 50;      // R
-                    rgba[i + 1] = 50;  // G
-                    rgba[i + 2] = 200; // B
-                    rgba[i + 3] = 255; // A
-                }
-                2 => {
-                    rgba[i] = 200;     // R
-                    rgba[i + 1] = 200; // G
-                    rgba[i + 2] = 50;  // B
-                    rgba[i + 3] = 255; // A
-                }
-                3 => {
-                    rgba[i] = 50;      // R
-                    rgba[i + 1] = 200; // G
-                    rgba[i + 2] = 50;  // B
-                    rgba[i + 3] = 255; // A
-                }
-                4 => {
-                    rgba[i] = 200;     // R
-                    rgba[i + 1] = 50;  // G
-                    rgba[i + 2] = 200; // B
-                    rgba[i + 3] = 255; // A
-                }
-                5 => {
-                    rgba[i] = 200;     // R
-                    rgba[i + 1] = 120; // G
-                    rgba[i + 2] = 50;  // B
-                    rgba[i + 3] = 255; // A
-                }
-                6 => {
-                    rgba[i] = 230;     // R
-                    rgba[i + 1] = 230; // G
-                    rgba[i + 2] = 230; // B
-                    rgba[i + 3] = 255; // A
-                }
-                _ => {
-                    rgba[i] = 40;      // R
-                    rgba[i + 1] = 40;  // G
-                    rgba[i + 2] = 40;  // B
-                    rgba[i + 3] = 255; // A
-                }
-            }
-            
-            // Add a circle pattern in the middle of each segment
-            let segment_angle = angle - (segment_id as f32 * std::f32::consts::PI / (segments as f32 / 2.0));
-            let segment_center_x = 0.6 * nx.signum() * segment_angle.cos();
-            let segment_center_y = 0.6 * ny.signum() * segment_angle.sin();
-            let dist_to_center = ((nx - segment_center_x).powi(2) + (ny - segment_center_y).powi(2)).sqrt();
-            
-            if dist_to_center < 0.2 {
-                // Create a darker circle in each segment
-                rgba[i] = rgba[i] / 2;
-                rgba[i + 1] = rgba[i + 1] / 2;
-                rgba[i + 2] = rgba[i + 2] / 2;
-            }
-        }
-    }
-    
-    // Create the image
-    let image = Image::new_fill(
-        Extent3d {
-            width: size as u32,
-            height: size as u32,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &rgba,
-        TextureFormat::Rgba8UnormSrgb,
-        bevy::render::render_asset::RenderAssetUsages::default(),
-    );
-    
-    // Return the image
-    image
-}
 
 // Physics component for the player
 #[derive(Component)]
@@ -366,17 +255,13 @@ pub fn apply_physics(
         }
         
         // Add a slight tilt in the direction of movement on slopes
+        // Currently disabled as the rotation above already handles rolling nicely
         if physics.velocity.length() > 0.5 {
-            // Calculate tilt angle based on velocity
-            let _forward = Vec3::new(physics.velocity.x, 0.0, physics.velocity.z).normalize();
-            
-            // Only apply subtle tilt (maximum 5 degrees)
-            let _tilt_amount = (physics.velocity.length() * 0.03).min(0.09);
-            
-            // This would tilt the sphere slightly in the direction of movement
-            // Commented out because the rotation above already handles rolling
+            // Code for additional tilt effect is commented out
             // We could enable this for additional visual effect if desired
-            // let tilt = Quat::from_axis_angle(_forward.cross(Vec3::Y).normalize(), _tilt_amount);
+            // let forward = Vec3::new(physics.velocity.x, 0.0, physics.velocity.z).normalize();
+            // let tilt_amount = (physics.velocity.length() * 0.03).min(0.09);
+            // let tilt = Quat::from_axis_angle(forward.cross(Vec3::Y).normalize(), tilt_amount);
             // transform.rotation = transform.rotation.slerp(tilt, 0.2);
         }
     }

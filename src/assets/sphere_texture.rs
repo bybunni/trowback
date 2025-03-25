@@ -98,14 +98,15 @@ pub fn create_sphere_texture() -> Image {
     }
     
     // Create the image
-    Image::new(
+    Image::new_fill(
         Extent3d {
             width: size as u32,
             height: size as u32,
             depth_or_array_layers: 1,
         },
         TextureDimension::D2,
-        rgba,
+        &rgba,
         TextureFormat::Rgba8UnormSrgb,
+        bevy::render::render_asset::RenderAssetUsages::default(),
     )
 }

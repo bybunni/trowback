@@ -4,6 +4,7 @@ use bevy::prelude::*;
 mod player;
 mod camera;
 mod terrain;
+mod assets;
 
 // Import specific items we need
 use player::{PlayerPlugin, spawn_player};
