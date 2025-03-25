@@ -5,17 +5,19 @@ mod player;
 mod camera;
 mod terrain;
 mod assets;
+mod projectile;
 
 // Import specific items we need
 use player::{PlayerPlugin, spawn_player};
 use camera::{CameraPlugin, spawn_camera};
 use terrain::TerrainPlugin;
+use projectile::ProjectilePlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // Add our custom plugins
-        .add_plugins((PlayerPlugin, CameraPlugin, TerrainPlugin))
+        .add_plugins((PlayerPlugin, CameraPlugin, TerrainPlugin, ProjectilePlugin))
         .add_systems(Startup, setup)
         .run();
 }
