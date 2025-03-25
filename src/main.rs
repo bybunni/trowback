@@ -24,6 +24,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut textures: ResMut<Assets<Image>>,
 ) {
     // Add a light source
     commands.spawn((
@@ -44,7 +45,7 @@ fn setup(
     spawn_camera(&mut commands);
 
     // Add player using the player module
-    spawn_player(&mut commands, &mut meshes, &mut materials);
+    spawn_player(&mut commands, &mut meshes, &mut materials, &mut textures);
 
     // Add terrain using the terrain module
     spawn_terrain(&mut commands, &mut meshes, &mut materials);
