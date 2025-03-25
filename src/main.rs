@@ -4,12 +4,15 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, move_player)
+        .add_systems(Update, (move_player, camera_follow))
         .run();
 }
 
 #[derive(Component)]
 struct Player;
+
+#[derive(Component)]
+struct FollowCamera;
 
 fn setup(
     mut commands: Commands,
@@ -34,6 +37,7 @@ fn setup(
     // Setup camera
     commands.spawn((
         Camera3d::default(),
+        FollowCamera,
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
@@ -83,5 +87,30 @@ fn move_player(
             // Keep the player on the ground
             transform.translation.y = 0.5; // Half the height of the sphere
         }
+    }
+}
+
+// Camera follows the player with a slight offset
+fn camera_follow(
+    player_query: Query<&Transform, With<Player>>,
+    mut camera_query: Query<&mut Transform, (With<FollowCamera>, Without<Player>)>,
+    time: Res<Time>,
+) {
+    // If we have a player and a camera
+    if let (Ok(player_transform), Ok(mut camera_transform)) = (player_query.get_single(), camera_query.get_single_mut()) {
+        // Calculate the desired camera position (behind and above the player)
+        let offset = Vec3::new(-2.0, 2.5, 5.0);
+        let target_position = player_transform.translation + offset;
+        
+        // Smoothly interpolate the camera position
+        let smoothness = 5.0;
+        camera_transform.translation = camera_transform.translation.lerp(
+            target_position, 
+            smoothness * time.delta_secs()
+        );
+        
+        // Make camera look at player
+        let look_target = player_transform.translation + Vec3::new(0.0, 0.5, 0.0);
+        camera_transform.look_at(look_target, Vec3::Y);
     }
 }
