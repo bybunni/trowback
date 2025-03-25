@@ -69,48 +69,76 @@ pub fn spawn_projectile(
                 target_pos.z - player_pos.z
             ).normalize();
             
-            // Clamp horizontal distance to prevent excessive velocities for far targets
-            let clamped_horizontal_dist = horizontal_dist.min(MAX_HORIZONTAL_DIST);
+            // We need to properly target the mouse position on the ground
+            // This requires calculating the correct launch angle and initial velocity
             
-            // Desired max height above higher of start/end points - cap at reasonable value
-            let max_height_factor = if horizontal_dist > MAX_HORIZONTAL_DIST {
-                // Gradually reduce height factor for very distant targets to prevent extreme arcs
-                PROJECTILE_HEIGHT_FACTOR * (1.0 - 0.5 * (horizontal_dist - MAX_HORIZONTAL_DIST) / MAX_HORIZONTAL_DIST).max(0.2)
-            } else {
-                PROJECTILE_HEIGHT_FACTOR
-            };
-            let max_height_above = clamped_horizontal_dist * max_height_factor;
+            // Vector directly to target (this is what we're aiming for)
+            let target_vector = target_pos - start_pos;
             
-            // Base travel time on clamped distance for more consistent speed feel
-            // For far targets, increase the min time to make them even slower
+            // Calculate the horizontal distance and direction (azimuth)
+            let horizontal_vector = Vec3::new(target_vector.x, 0.0, target_vector.z);
+            let horizontal_dist = horizontal_vector.length();
+            
+            // Apply distance clamping to prevent extreme velocities for far targets
+            let effective_dist = horizontal_dist.min(MAX_HORIZONTAL_DIST);
+            
+            // Calculate travel time based on distance for more consistent speed feel
+            // For far targets, increase the time to make them slower
             let min_travel_time = if horizontal_dist > MAX_HORIZONTAL_DIST {
                 3.0 + (horizontal_dist - MAX_HORIZONTAL_DIST) * 0.3 // Add time for distances beyond the maximum
             } else {
                 3.0
             };
-            let travel_time = (clamped_horizontal_dist / PROJECTILE_SPEED).max(min_travel_time);
+            let travel_time = (effective_dist / PROJECTILE_SPEED).max(min_travel_time);
             
-            // Horizontal component of velocity with clamping
-            let horizontal_speed = (clamped_horizontal_dist / travel_time).min(MAX_HORIZONTAL_VELOCITY);
-            let horizontal_velocity = direction * horizontal_speed;
+            // Calculate azimuth (the direction in the XZ plane)
+            let azimuth = f32::atan2(target_vector.z, target_vector.x);
             
-            // Vertical component for arc (solving quadratic equation for projectile motion)
-            // v_y = (h + 0.5*g*t²)/t
-            let vertical_velocity = (
-                height_diff + 
-                max_height_above + 
-                0.5 * GRAVITY * travel_time * travel_time
-            ) / travel_time;
+            // Use a fixed elevation angle for consistent catapult-like trajectory
+            // 60 degrees gives a good high arc
+            let elevation_angle = std::f32::consts::PI / 3.0; // 60 degrees
             
-            // Clamp vertical velocity to prevent extreme velocities
-            let clamped_vertical_velocity = vertical_velocity.min(MAX_VERTICAL_VELOCITY);
+            // Apply distance clamping to prevent extreme velocities
+            let effective_dist = horizontal_dist.min(MAX_HORIZONTAL_DIST);
             
-            // Combine into 3D velocity with clamped components
+            // Calculate initial speed needed to reach the target
+            // Using the ballistic equation: v² = (g * R) / sin(2θ)
+            // Where R is the horizontal distance, g is gravity, and θ is the elevation angle
+            let two_theta = 2.0 * elevation_angle;
+            let sin_two_theta = f32::sin(two_theta).max(0.01); // Prevent division by zero
+            
+            // Calculate the speed needed accounting for height difference
+            // The height difference affects how much energy is needed
+            let height_factor = if height_diff < 0.0 {
+                // Going uphill requires more speed
+                1.2 - (height_diff / effective_dist).max(-0.5).min(0.0)
+            } else {
+                // Going downhill requires less speed
+                0.9 - (height_diff / effective_dist).min(0.5).max(0.0)
+            };
+            
+            // Calculate the base speed required to hit the target
+            let base_speed = f32::sqrt((GRAVITY * effective_dist) / sin_two_theta);
+            
+            // Apply height adjustment and clamping to get final speed
+            let adjusted_speed = base_speed * height_factor;
+            let final_speed = adjusted_speed.max(2.0).min(MAX_HORIZONTAL_VELOCITY * 2.0);
+            
+            // Convert from spherical coordinates (speed, azimuth, elevation) to Cartesian velocity
             let initial_velocity = Vec3::new(
-                horizontal_velocity.x,
-                clamped_vertical_velocity,
-                horizontal_velocity.z
+                final_speed * f32::cos(elevation_angle) * f32::cos(azimuth),
+                final_speed * f32::sin(elevation_angle),
+                final_speed * f32::cos(elevation_angle) * f32::sin(azimuth)
             );
+            
+            // Scale down velocity for very distant targets to prevent excessive speeds
+            let scaling_factor = if horizontal_dist > MAX_HORIZONTAL_DIST {
+                0.8 * MAX_HORIZONTAL_DIST / horizontal_dist
+            } else {
+                1.0
+            };
+            
+            let initial_velocity = initial_velocity * scaling_factor;
             
             // Debug info
             println!("Distance: {:.2}, Vel: ({:.2}, {:.2}, {:.2}), Time: {:.2}", 
@@ -214,7 +242,23 @@ pub fn update_projectiles(
             }
         }
         
-        // Check for collision with terrain
+        // Debug info to help diagnose trajectory issues during early flight
+        if t < 0.2 && (t * 10.0).round() == (t * 10.0) {
+            // Calculate velocity vector for debug purposes
+            let debug_velocity = Vec3::new(
+                initial_vel.x, 
+                initial_vel.y - GRAVITY * t, 
+                initial_vel.z
+            );
+            
+            println!("T: {:.1}, Pos: ({:.2}, {:.2}, {:.2}), Vel: ({:.2}, {:.2}, {:.2})", 
+                t,
+                current_pos.x, current_pos.y, current_pos.z,
+                debug_velocity.x, debug_velocity.y, debug_velocity.z
+            );
+        }
+        
+        // Check for collision with terrain using the proper terrain height function
         let terrain_height = get_terrain_height(transform.translation.x, transform.translation.z);
         if transform.translation.y <= terrain_height {
             // Position the arrow at the terrain with slight embedding

@@ -17,7 +17,9 @@ pub const TERTIARY_NOISE_SCALE: f64 = 10.0; // Scale for small details
 // Component to mark terrain chunks
 #[derive(Component)]
 pub struct TerrainChunk {
+    #[allow(dead_code)]
     pub chunk_x: i32,
+    #[allow(dead_code)]
     pub chunk_z: i32,
 }
 
