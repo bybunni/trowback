@@ -61,8 +61,10 @@ pub fn spawn_player(
     let initial_z = 0.0;
     let terrain_height = get_terrain_height(initial_x, initial_z);
     
-    // Add player sphere positioned at the correct height on the terrain
-    let initial_position = Vec3::new(initial_x, terrain_height + 0.5, initial_z);
+    // Add player sphere positioned exactly on the terrain with a small offset to ensure collision
+    let sphere_radius = 0.5;
+    // Place the bottom of the sphere exactly on the terrain with a tiny offset
+    let initial_position = Vec3::new(initial_x, terrain_height + sphere_radius + 0.01, initial_z);
     
     // Create a textured material for the sphere with a pattern to show rotation
     let texture_handle = texture_assets.add(create_sphere_texture());
@@ -133,15 +135,23 @@ pub fn move_player(
         // Check if player is on the ground
         let sphere_radius = 0.5;
         let was_grounded = physics.grounded;
-        physics.grounded = pos.y <= current_height + sphere_radius + 0.01;
+        // Use a slightly larger tolerance for ground detection to prevent flickering between grounded states
+        physics.grounded = pos.y <= current_height + sphere_radius + 0.05;
         
         // Calculate effective mass (can be adjusted based on gameplay needs)
         let effective_mass = physics.mass * MASS_FACTOR;
         
-        // Apply momentum preservation
+        // Apply momentum preservation - but only to horizontal components when grounded
         if physics.momentum.length_squared() > 0.001 {
-            // Gradually blend momentum into velocity
-            physics.velocity = physics.velocity.lerp(physics.momentum * (1.0 / effective_mass), 0.2);
+            if physics.grounded {
+                // Only blend horizontal momentum when grounded (preserve y component)
+                let y_vel = physics.velocity.y;
+                physics.velocity = physics.velocity.lerp(physics.momentum * (1.0 / effective_mass), 0.2);
+                physics.velocity.y = y_vel; // Restore original y velocity
+            } else {
+                // Full momentum blending when in air
+                physics.velocity = physics.velocity.lerp(physics.momentum * (1.0 / effective_mass), 0.2);
+            }
         }
         
         // Apply gravity if not grounded
@@ -188,10 +198,29 @@ pub fn move_player(
             // Reduced multiplier from 5.0 to 2.5
             physics.velocity.x += input_force.x * delta * 2.5;
             physics.velocity.z += input_force.z * delta * 2.5;
+            
+            // Strictly ensure no y-velocity is added from inputs when grounded
+            if physics.velocity.y > 0.0 {
+                physics.velocity.y = 0.0;
+            }
         }
         
-        // Update momentum
-        physics.momentum = physics.momentum.lerp(physics.velocity, 1.0 - MOMENTUM_FACTOR);
+        // Update momentum - for horizontal components only when grounded
+        if physics.grounded {
+            // When grounded, only update horizontal momentum
+            let new_momentum = Vec3::new(
+                physics.velocity.x,
+                physics.momentum.y, // Keep vertical momentum separate
+                physics.velocity.z
+            );
+            physics.momentum = physics.momentum.lerp(new_momentum, 1.0 - MOMENTUM_FACTOR);
+            
+            // Force vertical momentum to zero when grounded
+            physics.momentum.y = 0.0;
+        } else {
+            // Normal momentum update when in the air
+            physics.momentum = physics.momentum.lerp(physics.velocity, 1.0 - MOMENTUM_FACTOR);
+        }
         
         // Cap maximum speed for gameplay reasons
         let horiz_speed_squared = physics.velocity.x * physics.velocity.x + physics.velocity.z * physics.velocity.z;
